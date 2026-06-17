@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vivero Verde | Tienda de Plantas y Semillas</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <div class="logo">🌿 Vivero Verde</div>
+        <div class="user-controls">
+            <button id="cartBtn">🛒 Carrito (<span id="cartCount">0</span>)</button>
+            <button id="loginBtn">Ingresar / Admin</button>
+        </div>
+    </header>
+
+    <main>
+        <section id="adminPanel" class="hidden">
+            <h2>Panel de Administrador</h2>
+            <form id="addProductForm">
+                <input type="text" id="prodName" placeholder="Nombre del producto" required>
+                <textarea id="prodDesc" placeholder="Descripción" required></textarea>
+                <input type="number" id="prodOldPrice" placeholder="Precio Original ($)" required>
+                <input type="number" id="prodNewPrice" placeholder="Precio de Oferta ($) - Opcional">
+                <input type="url" id="prodImage" placeholder="URL de la imagen" required>
+                <input type="number" id="prodStock" placeholder="Stock disponible" required>
+                <button type="submit">Agregar Producto</button>
+            </form>
+        </section>
+
+        <section class="catalog" id="catalog">
+            </section>
+    </main>
+
+    <div id="loginModal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Iniciar Sesión</h3>
+            <input type="text" id="username" placeholder="Usuario">
+            <input type="password" id="password" placeholder="Contraseña">
+            <button id="submitLogin">Entrar</button>
+            <button id="closeLogin">Cerrar</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
