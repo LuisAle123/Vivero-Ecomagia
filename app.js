@@ -1,3 +1,26 @@
+// Importar las funciones necesarias de los SDKs que necesitas
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+
+// Configuración de Firebase de tu aplicación
+const firebaseConfig = {
+    apiKey: "AIzaSyDzUgxYZsbwtzRQfUaaZ2Pw6u9XTHUnxrQ",
+    authDomain: "vivero-ecomagia.firebaseapp.com",
+    projectId: "vivero-ecomagia",
+    storageBucket: "vivero-ecomagia.firebasestorage.app",
+    messagingSenderId: "34943463295",
+    appId: "1:34943463295:web:0ffd562131eb2eb06a744a",
+    measurementId: "G-VVWGN6V6EX"
+};
+
+// Inicializar Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
 // Base de datos simulada en memoria
 let products = [
     {
