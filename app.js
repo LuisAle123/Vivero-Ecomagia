@@ -1,194 +1,250 @@
-// Importar las funciones necesarias de los SDKs
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
-// Configuración de Firebase de tu aplicación
+// Configuración Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyDzUgxYZsbwtzRQfUaaZ2Pw6u9XTHUnxrQ",
     authDomain: "vivero-ecomagia.firebaseapp.com",
     projectId: "vivero-ecomagia",
     storageBucket: "vivero-ecomagia.firebasestorage.app",
     messagingSenderId: "34943463295",
-    appId: "1:34943463295:web:0ffd562131eb2eb06a744a",
-    measurementId: "G-VVWGN6V6EX"
+    appId: "1:34943463295:web:0ffd562131eb2eb06a744a"
 };
 
-// Inicializar Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-// Estado global (ahora se llenará desde Firestore)
+// Variables globales
 let products = [];
-let isAdmin = false;
+// CORREO DEL ADMINISTRADOR DEFINIDO
+const ADMIN_EMAIL = "root@vivero.com"; 
 
-// Referencias del DOM
+// Referencias DOM
 const catalog = document.getElementById('catalog');
 const adminPanel = document.getElementById('adminPanel');
-const loginModal = document.getElementById('loginModal');
-const loginBtn = document.getElementById('loginBtn');
+const authModal = document.getElementById('authModal');
+const settingsModal = document.getElementById('settingsModal');
 
-// Función para calcular el descuento
-function calculateDiscount(oldP, newP) {
-    if (!newP || newP >= oldP) return 0;
-    const discount = ((oldP - newP) / oldP) * 100;
-    return Math.round(discount);
+// --- MODO OSCURO (Ajustes) ---
+const darkModeToggle = document.getElementById('darkModeToggle');
+
+// Revisar si ya había escogido modo oscuro antes
+if (localStorage.getItem('theme') === 'dark') {
+    document.body.classList.add('dark-mode');
+    darkModeToggle.checked = true;
 }
 
-// Función para generar estrellas de calificación
+darkModeToggle.addEventListener('change', (e) => {
+    if(e.target.checked) {
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('theme', 'dark');
+    } else {
+        document.body.classList.remove('dark-mode');
+        localStorage.setItem('theme', 'light');
+    }
+});
+
+// --- RENDERIZADO DEL CATÁLOGO ---
+function calculateDiscount(oldP, newP) {
+    if (!newP || newP >= oldP) return 0;
+    return Math.round(((oldP - newP) / oldP) * 100);
+}
+
 function generateStars(rating) {
     let starsHtml = '';
-    for (let i = 1; i <= 5; i++) {
-        starsHtml += i <= Math.round(rating) ? '★' : '☆';
-    }
+    for (let i = 1; i <= 5; i++) { starsHtml += i <= Math.round(rating) ? '★' : '☆'; }
     return starsHtml;
 }
 
-// Renderizar el catálogo
 function renderProducts() {
     catalog.innerHTML = '';
     products.forEach(p => {
         const discountPercentage = calculateDiscount(p.oldPrice, p.newPrice);
-        
         const card = document.createElement('div');
         card.className = 'product-card';
-        
         card.innerHTML = `
             ${discountPercentage > 0 ? `<div class="discount-badge">¡-${discountPercentage}%!</div>` : ''}
             <img src="${p.image}" alt="${p.name}">
             <h3>${p.name}</h3>
             <p>${p.description}</p>
-            <div class="stars">${generateStars(p.rating)} (${p.rating})</div>
+            <div class="stars">${generateStars(p.rating)}</div>
             <div>
                 ${discountPercentage > 0 ? `<span class="old-price">$${p.oldPrice}</span>` : ''}
                 <span class="price">$${p.newPrice || p.oldPrice}</span>
             </div>
-            <p><small>Stock: ${p.stock}</small></p>
-            <button onclick="addToCart('${p.id}')">Añadir al carrito</button>
+            <button class="action-btn" onclick="addToCart('${p.id}')">Añadir al carrito</button>
         `;
         catalog.appendChild(card);
     });
 }
 
-// Escuchar cambios en la base de datos en tiempo real (Sustituye al renderProducts() inicial)
 function listenToProducts() {
-    const productCollection = collection(db, "plantas");
-    // onSnapshot actualiza la vista automáticamente si agregas o borras algo en la BD
-    onSnapshot(productCollection, (snapshot) => {
+    onSnapshot(collection(db, "plantas"), (snapshot) => {
         products = [];
-        snapshot.forEach((doc) => {
-            products.push({ id: doc.id, ...doc.data() });
-        });
+        snapshot.forEach((doc) => products.push({ id: doc.id, ...doc.data() }));
         renderProducts();
     });
 }
 
-// --- LÓGICA DE AUTENTICACIÓN REAL ---
-
-// Escucha si el usuario entra o sale de su cuenta
+// --- ESTADO DE AUTENTICACIÓN Y PERFIL ---
 onAuthStateChanged(auth, (user) => {
+    const loginBtn = document.getElementById('loginBtn');
+    const userProfileBadge = document.getElementById('userProfileBadge');
+    const userNameDisplay = document.getElementById('userNameDisplay');
+    const userAvatarBtn = document.getElementById('userAvatarBtn');
+    const editProfileArea = document.getElementById('editProfileArea');
+    const settingsLoginPrompt = document.getElementById('settingsLoginPrompt');
+
     if (user) {
-        isAdmin = true;
-        adminPanel.classList.remove('hidden');
-        loginBtn.textContent = "Cerrar Sesión";
+        // UI Usuario Logueado
+        loginBtn.classList.add('hidden');
+        userProfileBadge.classList.remove('hidden');
+        userNameDisplay.textContent = user.displayName || "Sin Nombre";
+        userAvatarBtn.src = user.photoURL || "https://via.placeholder.com/40";
+        
+        // Modal de Ajustes UI
+        editProfileArea.classList.remove('hidden');
+        settingsLoginPrompt.classList.add('hidden');
+
+        // Mostrar Panel de Admin solo si es el root
+        if (user.email === ADMIN_EMAIL) {
+            adminPanel.classList.remove('hidden');
+        } else {
+            adminPanel.classList.add('hidden');
+        }
     } else {
-        isAdmin = false;
+        // UI Usuario Deslogueado
+        loginBtn.classList.remove('hidden');
+        userProfileBadge.classList.add('hidden');
         adminPanel.classList.add('hidden');
-        loginBtn.textContent = "Ingresar / Admin";
+        editProfileArea.classList.add('hidden');
+        settingsLoginPrompt.classList.remove('hidden');
     }
 });
 
-// Controlar el botón del header
-loginBtn.addEventListener('click', () => {
-    if (isAdmin) {
-        signOut(auth);
-        alert('Sesión cerrada');
-    } else {
-        loginModal.classList.remove('hidden');
-    }
+// --- LÓGICA DE INTERFAZ DE MODALES ---
+document.getElementById('loginBtn').addEventListener('click', () => authModal.classList.remove('hidden'));
+document.getElementById('settingsBtn').addEventListener('click', () => settingsModal.classList.remove('hidden'));
+
+document.querySelectorAll('.close-modal').forEach(btn => {
+    btn.addEventListener('click', (e) => e.target.closest('.modal').classList.add('hidden'));
 });
 
-document.getElementById('closeLogin').addEventListener('click', () => loginModal.classList.add('hidden'));
+document.getElementById('logoutBtn').addEventListener('click', () => {
+    signOut(auth);
+    alert('Sesión cerrada correctamente');
+});
 
-// Iniciar sesión conectándose a Firebase
+// Cambiar entre Login y Registro
+const tabLogin = document.getElementById('tabLogin');
+const tabRegister = document.getElementById('tabRegister');
+const loginFormArea = document.getElementById('loginFormArea');
+const registerFormArea = document.getElementById('registerFormArea');
+
+tabLogin.addEventListener('click', () => {
+    tabLogin.classList.add('active'); tabRegister.classList.remove('active');
+    loginFormArea.classList.remove('hidden'); registerFormArea.classList.add('hidden');
+});
+
+tabRegister.addEventListener('click', () => {
+    tabRegister.classList.add('active'); tabLogin.classList.remove('active');
+    registerFormArea.classList.remove('hidden'); loginFormArea.classList.add('hidden');
+});
+
+// --- SISTEMA DE LOGIN Y REGISTRO ---
 document.getElementById('submitLogin').addEventListener('click', async () => {
-    // ATENCIÓN: El input 'username' ahora debe recibir un CORREO electrónico registrado en Firebase
-    const email = document.getElementById('username').value;
-    const pass = document.getElementById('password').value;
-
+    const email = document.getElementById('loginEmail').value;
+    const pass = document.getElementById('loginPassword').value;
     try {
         await signInWithEmailAndPassword(auth, email, pass);
-        loginModal.classList.add('hidden');
-        alert('Bienvenido al panel de administración');
-        document.getElementById('username').value = '';
-        document.getElementById('password').value = '';
+        authModal.classList.add('hidden');
     } catch (error) {
-        alert('Credenciales incorrectas o usuario no registrado.');
-        console.error("Error de Auth: ", error.message);
+        alert('Error al iniciar sesión: Revisa tus datos.');
     }
 });
 
-// --- LÓGICA PARA AGREGAR PRODUCTOS ---
-document.getElementById('addProductForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
+document.getElementById('submitRegister').addEventListener('click', async () => {
+    const nick = document.getElementById('regNickname').value;
+    const email = document.getElementById('regEmail').value;
+    const pass = document.getElementById('regPassword').value;
     
-    // Cambiar estado del botón para indicar que está subiendo
-    const submitBtn = e.target.querySelector('button[type="submit"]');
-    submitBtn.textContent = "Guardando...";
-    submitBtn.disabled = true;
+    if(pass.length < 6) return alert("La contraseña debe tener al menos 6 caracteres.");
 
     try {
-        const name = document.getElementById('prodName').value;
-        const description = document.getElementById('prodDesc').value;
-        const oldPrice = parseFloat(document.getElementById('prodOldPrice').value);
-        const newPrice = parseFloat(document.getElementById('prodNewPrice').value) || null;
-        const stock = parseInt(document.getElementById('prodStock').value);
+        // Crear el usuario en Firebase
+        const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+        // Actualizar su perfil inmediatamente con su Nickname
+        await updateProfile(userCredential.user, {
+            displayName: nick,
+            photoURL: "https://via.placeholder.com/150" // Foto por defecto
+        });
         
-        let imageUrl = "";
-        const imageInput = document.getElementById('prodImage');
+        authModal.classList.add('hidden');
+        alert('Cuenta creada exitosamente. ¡Bienvenido!');
+        // Forzar recarga de UI
+        window.location.reload(); 
+    } catch (error) {
+        alert('Error al crear cuenta: ' + error.message);
+    }
+});
 
-        // Comprueba si el input es de tipo archivo (para subir a Storage) o texto (URL directa)
-        if (imageInput.type === 'file' && imageInput.files.length > 0) {
-            const file = imageInput.files[0];
-            const storageRef = ref(storage, `productos/${Date.now()}_${file.name}`);
-            const snapshot = await uploadBytes(storageRef, file);
-            imageUrl = await getDownloadURL(snapshot.ref);
-        } else {
-            imageUrl = imageInput.value;
+// --- EDITAR PERFIL ---
+document.getElementById('saveProfileBtn').addEventListener('click', async () => {
+    const newNick = document.getElementById('editNickname').value;
+    const newAvatar = document.getElementById('editAvatarUrl').value;
+    const user = auth.currentUser;
+
+    if(user) {
+        try {
+            await updateProfile(user, {
+                displayName: newNick || user.displayName,
+                photoURL: newAvatar || user.photoURL
+            });
+            alert('Perfil actualizado con éxito');
+            settingsModal.classList.add('hidden');
+            window.location.reload();
+        } catch (error) {
+            alert('Error al actualizar el perfil');
         }
+    }
+});
 
-        // Crear el documento en la colección "plantas" de Firestore
+// --- AGREGAR PRODUCTO (ADMIN) ---
+document.getElementById('addProductForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    submitBtn.textContent = "Guardando..."; submitBtn.disabled = true;
+
+    try {
+        const file = document.getElementById('prodImage').files[0];
+        const storageRef = ref(storage, `productos/${Date.now()}_${file.name}`);
+        const snapshot = await uploadBytes(storageRef, file);
+        const imageUrl = await getDownloadURL(snapshot.ref);
+
         await addDoc(collection(db, "plantas"), {
-            name: name,
-            description: description,
-            oldPrice: oldPrice,
-            newPrice: newPrice,
-            image: imageUrl || "https://via.placeholder.com/500",
-            stock: stock,
-            rating: 0, 
+            name: document.getElementById('prodName').value,
+            description: document.getElementById('prodDesc').value,
+            oldPrice: parseFloat(document.getElementById('prodOldPrice').value),
+            newPrice: parseFloat(document.getElementById('prodNewPrice').value) || null,
+            image: imageUrl,
+            stock: parseInt(document.getElementById('prodStock').value),
+            rating: 0,
             createdAt: new Date()
         });
 
         alert('Producto agregado exitosamente.');
         e.target.reset();
     } catch (error) {
-        console.error("Error al agregar producto: ", error);
-        alert('Error al guardar el producto. Revisa la consola o las reglas de Firebase.');
+        alert('Error al guardar el producto.');
     } finally {
-        // Restaurar el botón
-        submitBtn.textContent = "Agregar Producto";
-        submitBtn.disabled = false;
+        submitBtn.textContent = "Agregar Producto"; submitBtn.disabled = false;
     }
 });
 
-// --- LÓGICA DEL CARRITO ---
-// Como el script es de tipo "module", necesitamos exponer la función globalmente para el onclick del HTML
-window.addToCart = function(id) {
-    alert('Función de carrito en desarrollo. ID del producto: ' + id);
-};
+window.addToCart = function(id) { alert('Próximamente: Producto ID ' + id + ' al carrito.'); };
 
-// Iniciar la lectura de datos de la nube
 listenToProducts();
