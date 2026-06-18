@@ -213,24 +213,23 @@ document.getElementById('saveProfileBtn').addEventListener('click', async () => 
     }
 });
 
-// --- AGREGAR PRODUCTO (ADMIN) ---
+// --- LÓGICA PARA AGREGAR PRODUCTOS ---
 document.getElementById('addProductForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const submitBtn = e.target.querySelector('button[type="submit"]');
-    submitBtn.textContent = "Guardando..."; submitBtn.disabled = true;
+    submitBtn.textContent = "Guardando..."; 
+    submitBtn.disabled = true;
 
     try {
-        const file = document.getElementById('prodImage').files[0];
-        const storageRef = ref(storage, `productos/${Date.now()}_${file.name}`);
-        const snapshot = await uploadBytes(storageRef, file);
-        const imageUrl = await getDownloadURL(snapshot.ref);
+        // Obtenemos la URL directamente del input
+        const imageUrl = document.getElementById('prodImage').value;
 
         await addDoc(collection(db, "plantas"), {
             name: document.getElementById('prodName').value,
             description: document.getElementById('prodDesc').value,
             oldPrice: parseFloat(document.getElementById('prodOldPrice').value),
             newPrice: parseFloat(document.getElementById('prodNewPrice').value) || null,
-            image: imageUrl,
+            image: imageUrl, // Guardamos la URL
             stock: parseInt(document.getElementById('prodStock').value),
             rating: 0,
             createdAt: new Date()
@@ -239,9 +238,11 @@ document.getElementById('addProductForm').addEventListener('submit', async (e) =
         alert('Producto agregado exitosamente.');
         e.target.reset();
     } catch (error) {
+        console.error("Error al agregar producto: ", error);
         alert('Error al guardar el producto.');
     } finally {
-        submitBtn.textContent = "Agregar Producto"; submitBtn.disabled = false;
+        submitBtn.textContent = "Agregar Producto"; 
+        submitBtn.disabled = false;
     }
 });
 
