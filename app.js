@@ -104,7 +104,7 @@ onAuthStateChanged(auth, (user) => {
         loginBtn.classList.add('hidden');
         userProfileBadge.classList.remove('hidden');
         userNameDisplay.textContent = user.displayName || "Sin Nombre";
-        userAvatarBtn.src = user.photoURL || "https://via.placeholder.com/40";
+        userAvatarBtn.src = user.photoURL || "https://u.cubeupload.com/LAUIS46/defaultimage.png";
         
         // Modal de Ajustes UI
         editProfileArea.classList.remove('hidden');
