@@ -4,13 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vivero Verde | Tienda de Plantas y Semillas</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico?v=1">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <header>
-<div class="logo-container">
-    <img src="https://u.cubeupload.com/LAUIS46/ca2logo.png" alt="Logo Vivero EcoMagia"">
-</div>
+        <div class="logo-container">
+            <img src="https://u.cubeupload.com/LAUIS46/ca2logo.png" alt="Logo Vivero EcoMagia">
+        </div>
         <div class="user-controls">
             <button id="cartBtn" class="nav-btn">🛒 Carrito (<span id="cartCount">0</span>)</button>
             
@@ -38,7 +39,7 @@
                     <input type="number" id="prodStock" placeholder="Stock disponible" required>
                 </div>
                 <textarea id="prodDesc" placeholder="Descripción" required></textarea>
-                <input type="url" id="prodImage" placeholder="URL directa de la imagen (ej: https://ejemplo.com/planta.jpg)" required>
+                <input type="url" id="prodImage" placeholder="URL directa de la imagen" required>
                 <button type="submit" class="action-btn">Agregar Producto</button>
             </form>
         </section>
@@ -74,7 +75,6 @@
     <div id="settingsModal" class="modal hidden">
         <div class="modal-content">
             <h3>⚙️ Ajustes del Sistema</h3>
-            
             <div class="setting-item">
                 <label for="darkModeToggle">Modo Oscuro</label>
                 <label class="switch">
@@ -82,19 +82,29 @@
                     <span class="slider round"></span>
                 </label>
             </div>
-
             <hr>
-
             <div id="editProfileArea" class="hidden">
                 <h3>✏️ Editar Perfil</h3>
                 <input type="text" id="editNickname" placeholder="Nuevo Nickname">
                 <input type="url" id="editAvatarUrl" placeholder="URL de tu nueva foto de perfil">
                 <button id="saveProfileBtn" class="action-btn">Guardar Cambios</button>
             </div>
-            
             <p id="settingsLoginPrompt" class="text-muted">Inicia sesión para editar tu perfil.</p>
-            
             <button class="close-modal mt-2">Cerrar</button>
+        </div>
+    </div>
+
+    <div id="cartModal" class="modal hidden">
+        <div class="modal-content">
+            <h3>🛒 Tu Carrito</h3>
+            <div id="cartItemsContainer" class="cart-items">
+                <p class="text-muted">Tu carrito está vacío.</p>
+            </div>
+            <div class="cart-summary">
+                <strong>Total: $<span id="cartTotal">0.00</span></strong>
+            </div>
+            <button id="checkoutBtn" class="action-btn" style="margin-top:1rem;">Proceder al Pago</button>
+            <button class="close-modal mt-2">Seguir Comprando</button>
         </div>
     </div>
 
