@@ -55,7 +55,7 @@ header {
 }
 
 .logo-container img {
-    height: 50px;       /* Altura fija para que encaje en el header */
+    height: 65px;       /* Altura fija para que encaje en el header */
     width: auto;        /* Mantiene la proporción 1862:681 automáticamente */
     display: block;
 }
