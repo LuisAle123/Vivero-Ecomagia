@@ -180,7 +180,7 @@ document.getElementById('submitRegister').addEventListener('click', async () => 
         // Actualizar su perfil inmediatamente con su Nickname
         await updateProfile(userCredential.user, {
             displayName: nick,
-            photoURL: "https://via.placeholder.com/150" // Foto por defecto
+            photoURL: "https://u.cubeupload.com/LAUIS46/defaultimage.png" // Foto por defecto
         });
         
         authModal.classList.add('hidden');
