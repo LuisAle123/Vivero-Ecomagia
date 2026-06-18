@@ -20,19 +20,19 @@ const storage = getStorage(app);
 
 // Variables globales
 let products = [];
-// CORREO DEL ADMINISTRADOR DEFINIDO
+let cart = []; // Arreglo para guardar el carrito
 const ADMIN_EMAIL = "root@vivero.com"; 
 
-// Referencias DOM
+// Referencias DOM principales
 const catalog = document.getElementById('catalog');
 const adminPanel = document.getElementById('adminPanel');
 const authModal = document.getElementById('authModal');
 const settingsModal = document.getElementById('settingsModal');
+const cartModal = document.getElementById('cartModal');
 
 // --- MODO OSCURO (Ajustes) ---
 const darkModeToggle = document.getElementById('darkModeToggle');
 
-// Revisar si ya había escogido modo oscuro antes
 if (localStorage.getItem('theme') === 'dark') {
     document.body.classList.add('dark-mode');
     darkModeToggle.checked = true;
@@ -100,24 +100,20 @@ onAuthStateChanged(auth, (user) => {
     const settingsLoginPrompt = document.getElementById('settingsLoginPrompt');
 
     if (user) {
-        // UI Usuario Logueado
         loginBtn.classList.add('hidden');
         userProfileBadge.classList.remove('hidden');
         userNameDisplay.textContent = user.displayName || "Sin Nombre";
         userAvatarBtn.src = user.photoURL || "https://u.cubeupload.com/LAUIS46/defaultimage.png";
         
-        // Modal de Ajustes UI
         editProfileArea.classList.remove('hidden');
         settingsLoginPrompt.classList.add('hidden');
 
-        // Mostrar Panel de Admin solo si es el root
         if (user.email === ADMIN_EMAIL) {
             adminPanel.classList.remove('hidden');
         } else {
             adminPanel.classList.add('hidden');
         }
     } else {
-        // UI Usuario Deslogueado
         loginBtn.classList.remove('hidden');
         userProfileBadge.classList.add('hidden');
         adminPanel.classList.add('hidden');
@@ -129,7 +125,9 @@ onAuthStateChanged(auth, (user) => {
 // --- LÓGICA DE INTERFAZ DE MODALES ---
 document.getElementById('loginBtn').addEventListener('click', () => authModal.classList.remove('hidden'));
 document.getElementById('settingsBtn').addEventListener('click', () => settingsModal.classList.remove('hidden'));
+document.getElementById('cartBtn').addEventListener('click', () => cartModal.classList.remove('hidden'));
 
+// Cierra cualquier modal dinámicamente
 document.querySelectorAll('.close-modal').forEach(btn => {
     btn.addEventListener('click', (e) => e.target.closest('.modal').classList.add('hidden'));
 });
@@ -175,17 +173,14 @@ document.getElementById('submitRegister').addEventListener('click', async () => 
     if(pass.length < 6) return alert("La contraseña debe tener al menos 6 caracteres.");
 
     try {
-        // Crear el usuario en Firebase
         const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-        // Actualizar su perfil inmediatamente con su Nickname
         await updateProfile(userCredential.user, {
             displayName: nick,
-            photoURL: "https://u.cubeupload.com/LAUIS46/defaultimage.png" // Foto por defecto
+            photoURL: "https://u.cubeupload.com/LAUIS46/defaultimage.png" 
         });
         
         authModal.classList.add('hidden');
         alert('Cuenta creada exitosamente. ¡Bienvenido!');
-        // Forzar recarga de UI
         window.location.reload(); 
     } catch (error) {
         alert('Error al crear cuenta: ' + error.message);
@@ -213,7 +208,7 @@ document.getElementById('saveProfileBtn').addEventListener('click', async () => 
     }
 });
 
-// --- LÓGICA PARA AGREGAR PRODUCTOS ---
+// --- AGREGAR PRODUCTO (ADMIN) ---
 document.getElementById('addProductForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const submitBtn = e.target.querySelector('button[type="submit"]');
@@ -221,7 +216,6 @@ document.getElementById('addProductForm').addEventListener('submit', async (e) =
     submitBtn.disabled = true;
 
     try {
-        // Obtenemos la URL directamente del input
         const imageUrl = document.getElementById('prodImage').value;
 
         await addDoc(collection(db, "plantas"), {
@@ -229,7 +223,7 @@ document.getElementById('addProductForm').addEventListener('submit', async (e) =
             description: document.getElementById('prodDesc').value,
             oldPrice: parseFloat(document.getElementById('prodOldPrice').value),
             newPrice: parseFloat(document.getElementById('prodNewPrice').value) || null,
-            image: imageUrl, // Guardamos la URL
+            image: imageUrl,
             stock: parseInt(document.getElementById('prodStock').value),
             rating: 0,
             createdAt: new Date()
@@ -238,7 +232,6 @@ document.getElementById('addProductForm').addEventListener('submit', async (e) =
         alert('Producto agregado exitosamente.');
         e.target.reset();
     } catch (error) {
-        console.error("Error al agregar producto: ", error);
         alert('Error al guardar el producto.');
     } finally {
         submitBtn.textContent = "Agregar Producto"; 
@@ -246,6 +239,67 @@ document.getElementById('addProductForm').addEventListener('submit', async (e) =
     }
 });
 
-window.addToCart = function(id) { alert('Próximamente: Producto ID ' + id + ' al carrito.'); };
+// --- SISTEMA DEL CARRITO ---
+window.addToCart = function(id) {
+    // 1. Verificamos si el usuario tiene sesión iniciada
+    if (!auth.currentUser) {
+        alert("¡Hola! Debes iniciar sesión o registrarte para añadir plantas a tu carrito.");
+        authModal.classList.remove('hidden'); // Le abrimos el modal automáticamente
+        return;
+    }
 
+    // 2. Buscamos la planta en la base de datos local y la añadimos
+    const product = products.find(p => p.id === id);
+    if (product) {
+        cart.push(product);
+        updateCartUI();
+        alert(`${product.name} añadido a tu carrito 🌿`);
+    }
+};
+
+window.removeFromCart = function(index) {
+    cart.splice(index, 1);
+    updateCartUI();
+};
+
+function updateCartUI() {
+    const cartCount = document.getElementById('cartCount');
+    const cartItemsContainer = document.getElementById('cartItemsContainer');
+    const cartTotalDisplay = document.getElementById('cartTotal');
+
+    cartCount.textContent = cart.length;
+    cartItemsContainer.innerHTML = '';
+    
+    let total = 0;
+
+    if (cart.length === 0) {
+        cartItemsContainer.innerHTML = '<p class="text-muted">Tu carrito está vacío.</p>';
+    } else {
+        cart.forEach((item, index) => {
+            const price = item.newPrice || item.oldPrice;
+            total += price;
+
+            const div = document.createElement('div');
+            div.className = 'cart-item';
+            div.innerHTML = `
+                <img src="${item.image}" alt="${item.name}">
+                <div class="cart-item-details">
+                    <strong>${item.name}</strong><br>
+                    $${price}
+                </div>
+                <button class="cart-item-remove" onclick="removeFromCart(${index})">X</button>
+            `;
+            cartItemsContainer.appendChild(div);
+        });
+    }
+
+    cartTotalDisplay.textContent = total.toFixed(2);
+}
+
+document.getElementById('checkoutBtn').addEventListener('click', () => {
+    if(cart.length === 0) return alert("Tu carrito está vacío.");
+    alert("Próximamente: Pasarela de Pago integrada.");
+});
+
+// Inicializar la lectura de datos
 listenToProducts();
