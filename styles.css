@@ -277,3 +277,70 @@ input:checked + .slider:before { transform: translateX(26px); }
     font-size: 1.3rem;
     color: var(--primary);
 }
+
+/* --- ESTILOS DE RESEÑAS Y PRECIOS --- */
+.price-label {
+    display: block;
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: 5px;
+}
+
+.price-oferta {
+    color: #d32f2f;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.stock-label {
+    color: var(--primary);
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.btn-secondary {
+    background-color: #555;
+    margin-top: 0.5rem;
+}
+
+.btn-secondary:hover {
+    background-color: #333;
+}
+
+/* Modal de Reseñas */
+.reviews-container {
+    max-height: 250px;
+    overflow-y: auto;
+    background: var(--input-bg);
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.review-item {
+    border-bottom: 1px solid var(--input-border);
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+}
+
+.review-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.review-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--text-color);
+}
+
+.review-author {
+    font-weight: bold;
+    color: var(--primary);
+}
+
+.review-text {
+    margin-top: 5px;
+    font-size: 0.95rem;
+}
