@@ -1,10 +1,9 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-// NUEVOS IMPORTS: doc, getDoc, updateDoc y arrayUnion
-import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+// Se agregó deleteDoc a las importaciones
+import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc, updateDoc, arrayUnion, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
-// Configuración Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyDzUgxYZsbwtzRQfUaaZ2Pw6u9XTHUnxrQ",
     authDomain: "vivero-ecomagia.firebaseapp.com",
@@ -17,10 +16,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
 
 let products = [];
-// RECUPERAR CARRITO DE LOCALSTORAGE AL INICIAR
 let cart = JSON.parse(localStorage.getItem('vivero_cart')) || []; 
 const ADMIN_EMAIL = "root@vivero.com"; 
 
@@ -29,6 +26,7 @@ const adminPanel = document.getElementById('adminPanel');
 const authModal = document.getElementById('authModal');
 const settingsModal = document.getElementById('settingsModal');
 const cartModal = document.getElementById('cartModal');
+const editProductModal = document.getElementById('editProductModal');
 const reviewsModal = document.getElementById('reviewsModal');
 
 // --- MODO OSCURO ---
@@ -42,7 +40,7 @@ darkModeToggle.addEventListener('change', (e) => {
     localStorage.setItem('theme', e.target.checked ? 'dark' : 'light');
 });
 
-// --- RENDERIZADO DEL CATÁLOGO ---
+// --- CATÁLOGO Y RENDERIZADO ---
 function calculateDiscount(oldP, newP) {
     if (!newP || newP >= oldP) return 0;
     return Math.round(((oldP - newP) / oldP) * 100);
@@ -56,23 +54,28 @@ function generateStars(rating) {
 
 function renderProducts() {
     catalog.innerHTML = '';
+    const isAdmin = auth.currentUser && auth.currentUser.email === ADMIN_EMAIL;
+
     products.forEach(p => {
         const discountPercentage = calculateDiscount(p.oldPrice, p.newPrice);
-        
-        // Calcular promedio de reseñas
         let avgRating = 0;
         const reviews = p.reviews || [];
-        if (reviews.length > 0) {
-            const sum = reviews.reduce((acc, curr) => acc + curr.rating, 0);
-            avgRating = sum / reviews.length;
-        }
+        if (reviews.length > 0) avgRating = reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length;
 
         const card = document.createElement('div');
         card.className = 'product-card';
         
-        // Bloquear botón si no hay stock
-        const btnEstado = p.stock > 0 ? `<button class="action-btn" onclick="addToCart('${p.id}')">Añadir al carrito</button>` 
-                                      : `<button class="action-btn" disabled style="background:gray;">Agotado</button>`;
+        const btnEstado = p.stock > 0 
+            ? `<button class="action-btn" onclick="addToCart('${p.id}')">Añadir al carrito</button>` 
+            : `<button class="action-btn" disabled style="background:gray;">Agotado</button>`;
+
+        // Botones exclusivos de administrador
+        const adminButtons = isAdmin ? `
+            <div class="admin-controls">
+                <button class="btn-edit" onclick="openEditModal('${p.id}')">✏️ Editar</button>
+                <button class="btn-delete" onclick="deleteProduct('${p.id}')">🗑️ Borrar</button>
+            </div>
+        ` : '';
 
         card.innerHTML = `
             ${discountPercentage > 0 ? `<div class="discount-badge">¡-${discountPercentage}%!</div>` : ''}
@@ -92,6 +95,7 @@ function renderProducts() {
             
             ${btnEstado}
             <button class="action-btn btn-secondary" onclick="openReviews('${p.id}')">Ver reseñas</button>
+            ${adminButtons}
         `;
         catalog.appendChild(card);
     });
@@ -102,79 +106,117 @@ function listenToProducts() {
         products = [];
         snapshot.forEach((doc) => products.push({ id: doc.id, ...doc.data() }));
         renderProducts();
-        updateCartUI(); // Actualizar interfaz por si cambió algún precio
+        updateCartUI(); 
     });
 }
 
 // --- AUTENTICACIÓN ---
 onAuthStateChanged(auth, (user) => {
-    const loginBtn = document.getElementById('loginBtn');
-    const userProfileBadge = document.getElementById('userProfileBadge');
-    
     if (user) {
-        loginBtn.classList.add('hidden');
-        userProfileBadge.classList.remove('hidden');
+        document.getElementById('loginBtn').classList.add('hidden');
+        document.getElementById('userProfileBadge').classList.remove('hidden');
         document.getElementById('userNameDisplay').textContent = user.displayName || "Sin Nombre";
         document.getElementById('userAvatarBtn').src = user.photoURL || "https://u.cubeupload.com/LAUIS46/defaultimage.png";
-        
         document.getElementById('editProfileArea').classList.remove('hidden');
         document.getElementById('settingsLoginPrompt').classList.add('hidden');
-        
         document.getElementById('addReviewArea').classList.remove('hidden');
         document.getElementById('reviewLoginPrompt').classList.add('hidden');
-
         adminPanel.classList.toggle('hidden', user.email !== ADMIN_EMAIL);
     } else {
-        loginBtn.classList.remove('hidden');
-        userProfileBadge.classList.add('hidden');
+        document.getElementById('loginBtn').classList.remove('hidden');
+        document.getElementById('userProfileBadge').classList.add('hidden');
         adminPanel.classList.add('hidden');
-        
         document.getElementById('editProfileArea').classList.add('hidden');
         document.getElementById('settingsLoginPrompt').classList.remove('hidden');
-        
         document.getElementById('addReviewArea').classList.add('hidden');
         document.getElementById('reviewLoginPrompt').classList.remove('hidden');
     }
+    renderProducts(); // Re-renderizar para mostrar/ocultar botones de admin
 });
 
-// Botones y Modales
 document.getElementById('loginBtn').addEventListener('click', () => authModal.classList.remove('hidden'));
 document.getElementById('settingsBtn').addEventListener('click', () => settingsModal.classList.remove('hidden'));
 document.getElementById('cartBtn').addEventListener('click', () => cartModal.classList.remove('hidden'));
 document.querySelectorAll('.close-modal').forEach(btn => btn.addEventListener('click', (e) => e.target.closest('.modal').classList.add('hidden')));
+document.getElementById('logoutBtn').addEventListener('click', () => { signOut(auth); alert('Sesión cerrada'); });
+
+const tabLogin = document.getElementById('tabLogin'); const tabRegister = document.getElementById('tabRegister');
+const loginFormArea = document.getElementById('loginFormArea'); const registerFormArea = document.getElementById('registerFormArea');
+tabLogin.addEventListener('click', () => { tabLogin.classList.add('active'); tabRegister.classList.remove('active'); loginFormArea.classList.remove('hidden'); registerFormArea.classList.add('hidden'); });
+tabRegister.addEventListener('click', () => { tabRegister.classList.add('active'); tabLogin.classList.remove('active'); registerFormArea.classList.remove('hidden'); loginFormArea.classList.add('hidden'); });
+
+document.getElementById('submitLogin').addEventListener('click', async () => {
+    try { await signInWithEmailAndPassword(auth, document.getElementById('loginEmail').value, document.getElementById('loginPassword').value); authModal.classList.add('hidden'); } catch (error) { alert('Error al iniciar sesión.'); }
+});
+
+document.getElementById('submitRegister').addEventListener('click', async () => {
+    try {
+        const cred = await createUserWithEmailAndPassword(auth, document.getElementById('regEmail').value, document.getElementById('regPassword').value);
+        await updateProfile(cred.user, { displayName: document.getElementById('regNickname').value, photoURL: "https://u.cubeupload.com/LAUIS46/defaultimage.png" });
+        window.location.reload(); 
+    } catch (error) { alert('Error: ' + error.message); }
+});
+
+document.getElementById('saveProfileBtn').addEventListener('click', async () => {
+    try {
+        await updateProfile(auth.currentUser, { displayName: document.getElementById('editNickname').value || auth.currentUser.displayName, photoURL: document.getElementById('editAvatarUrl').value || auth.currentUser.photoURL });
+        window.location.reload();
+    } catch (error) { alert('Error al actualizar'); }
+});
+
 
 // --- SISTEMA DEL CARRITO ---
 window.addToCart = function(id) {
-    if (!auth.currentUser) {
-        alert("¡Hola! Debes iniciar sesión o registrarte para añadir plantas a tu carrito.");
-        authModal.classList.remove('hidden');
-        return;
-    }
+    if (!auth.currentUser) return alert("Debes iniciar sesión para comprar."), authModal.classList.remove('hidden');
 
     const product = products.find(p => p.id === id);
     if (product) {
-        // Verificar si la cantidad en el carrito supera el stock
-        const currentInCart = cart.filter(item => item.id === id).length;
-        if(currentInCart >= product.stock) {
-            alert(`No puedes añadir más de este producto. El stock máximo es ${product.stock}.`);
-            return;
+        const existingItem = cart.find(item => item.id === id);
+        
+        if (existingItem) {
+            if(existingItem.qty < product.stock) {
+                existingItem.qty += 1;
+                alert(`Cantidad aumentada. Tienes ${existingItem.qty} en el carrito.`);
+            } else {
+                alert(`Stock máximo alcanzado (${product.stock}).`);
+            }
+        } else {
+            // Añadimos el producto con una propiedad de cantidad (qty)
+            cart.push({ ...product, qty: 1 });
+            alert(`${product.name} añadido a tu carrito 🌿`);
         }
-
-        cart.push(product);
-        localStorage.setItem('vivero_cart', JSON.stringify(cart)); // Guardar en memoria
+        
+        localStorage.setItem('vivero_cart', JSON.stringify(cart));
         updateCartUI();
-        alert(`${product.name} añadido a tu carrito 🌿`);
     }
 };
 
-window.removeFromCart = function(index) {
-    cart.splice(index, 1);
-    localStorage.setItem('vivero_cart', JSON.stringify(cart)); // Actualizar memoria
+window.removeFromCart = function(id) {
+    cart = cart.filter(item => item.id !== id);
+    localStorage.setItem('vivero_cart', JSON.stringify(cart));
     updateCartUI();
 };
 
+window.changeCartQty = function(id, newQty) {
+    const item = cart.find(i => i.id === id);
+    const product = products.find(p => p.id === id);
+    
+    if (item && product) {
+        let parsedQty = parseInt(newQty);
+        if (parsedQty > product.stock) parsedQty = product.stock;
+        if (parsedQty < 1) parsedQty = 1;
+        
+        item.qty = parsedQty;
+        localStorage.setItem('vivero_cart', JSON.stringify(cart));
+        updateCartUI();
+    }
+}
+
 function updateCartUI() {
-    document.getElementById('cartCount').textContent = cart.length;
+    // Calcular conteo total de items (sumando cantidades)
+    const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
+    document.getElementById('cartCount').textContent = totalItems;
+    
     const container = document.getElementById('cartItemsContainer');
     let total = 0;
 
@@ -182,16 +224,26 @@ function updateCartUI() {
         container.innerHTML = '<p class="text-muted">Tu carrito está vacío.</p>';
     } else {
         container.innerHTML = '';
-        cart.forEach((item, index) => {
+        cart.forEach((item) => {
+            // Refrescar stock visual en caso de cambios en la base de datos
+            const realProduct = products.find(p => p.id === item.id);
+            const stockLimit = realProduct ? realProduct.stock : item.stock;
+            
             const price = item.newPrice || item.oldPrice;
-            total += price;
+            const subtotal = price * item.qty;
+            total += subtotal;
+
             container.innerHTML += `
                 <div class="cart-item">
                     <img src="${item.image}" alt="${item.name}">
                     <div class="cart-item-details">
-                        <strong>${item.name}</strong><br>$${price}
+                        <strong>${item.name}</strong><br>
+                        $${price} c/u
                     </div>
-                    <button class="cart-item-remove" onclick="removeFromCart(${index})">X</button>
+                    <div class="cart-item-actions">
+                        <input type="number" class="cart-qty-input" value="${item.qty}" min="1" max="${stockLimit}" onchange="changeCartQty('${item.id}', this.value)">
+                        <button class="cart-item-remove" onclick="removeFromCart('${item.id}')">X</button>
+                    </div>
                 </div>
             `;
         });
@@ -199,25 +251,60 @@ function updateCartUI() {
     document.getElementById('cartTotal').textContent = total.toFixed(2);
 }
 
-// COBRAR Y RESTAR STOCK
+// --- PASARELA DE PAGO ---
+const radioMethods = document.querySelectorAll('input[name="payMethod"]');
+const cardDetails = document.getElementById('cardDetails');
+const cardNumberInput = document.getElementById('cardNumber');
+const cardTypeLabel = document.getElementById('cardTypeLabel');
+
+// Mostrar/Ocultar detalles de tarjeta
+radioMethods.forEach(radio => {
+    radio.addEventListener('change', (e) => {
+        if(e.target.value === 'card') {
+            cardDetails.classList.remove('hidden');
+        } else {
+            cardDetails.classList.add('hidden');
+        }
+    });
+});
+
+// Detectar Visa o Mastercard
+cardNumberInput.addEventListener('input', (e) => {
+    const val = e.target.value;
+    if (val.startsWith('4')) {
+        cardTypeLabel.textContent = "💳 Visa";
+        cardTypeLabel.style.color = "#1a1f71";
+    } else if (val.startsWith('5')) {
+        cardTypeLabel.textContent = "💳 Mastercard";
+        cardTypeLabel.style.color = "#eb001b";
+    } else {
+        cardTypeLabel.textContent = "💳 Tarjeta";
+        cardTypeLabel.style.color = "var(--primary)";
+    }
+});
+
 document.getElementById('checkoutBtn').addEventListener('click', async () => {
     if(cart.length === 0) return alert("Tu carrito está vacío.");
+    
+    // Validación sencilla si elige tarjeta
+    const isCard = document.querySelector('input[name="payMethod"]:checked').value === 'card';
+    if(isCard) {
+        if(cardNumberInput.value.length < 13 || !document.getElementById('cardExpiry').value || !document.getElementById('cardCVC').value) {
+            return alert("Por favor completa los datos de la tarjeta correctamente.");
+        }
+    }
     
     const btn = document.getElementById('checkoutBtn');
     btn.textContent = "Procesando..."; btn.disabled = true;
 
     try {
-        // Agrupar items para restar el stock correctamente
-        const itemCounts = {};
-        cart.forEach(item => itemCounts[item.id] = (itemCounts[item.id] || 0) + 1);
-
-        for (let id in itemCounts) {
-            const productRef = doc(db, "plantas", id);
+        for (let item of cart) {
+            const productRef = doc(db, "plantas", item.id);
             const pDoc = await getDoc(productRef);
             
             if(pDoc.exists()) {
                 let currentStock = pDoc.data().stock;
-                let newStock = currentStock - itemCounts[id];
+                let newStock = currentStock - item.qty; // Restamos la cantidad específica
                 if(newStock < 0) newStock = 0;
                 
                 await updateDoc(productRef, { stock: newStock });
@@ -225,16 +312,103 @@ document.getElementById('checkoutBtn').addEventListener('click', async () => {
         }
 
         alert("¡Pago con éxito! 🌿 Gracias por tu compra.");
-        cart = []; // Vaciar carrito
-        localStorage.removeItem('vivero_cart'); // Vaciar F5
+        cart = []; 
+        localStorage.removeItem('vivero_cart'); 
         updateCartUI();
         cartModal.classList.add('hidden');
+        // Limpiar formulario tarjeta
+        cardNumberInput.value = '';
+        document.getElementById('cardExpiry').value = '';
+        document.getElementById('cardCVC').value = '';
+        cardTypeLabel.textContent = "💳 Tarjeta";
 
     } catch (error) {
         alert("Ocurrió un error al procesar el pago.");
-        console.error(error);
     } finally {
-        btn.textContent = "Proceder al Pago"; btn.disabled = false;
+        btn.textContent = "Pagar Ahora"; btn.disabled = false;
+    }
+});
+
+// --- FUNCIONES DE ADMINISTRADOR (CRUD) ---
+
+// Borrar
+window.deleteProduct = async function(id) {
+    if(confirm("¿Estás seguro de que deseas borrar este producto permanentemente?")) {
+        try {
+            await deleteDoc(doc(db, "plantas", id));
+            alert("Producto eliminado.");
+        } catch (error) {
+            alert("Error al borrar el producto.");
+        }
+    }
+};
+
+// Abrir modal de edición
+window.openEditModal = function(id) {
+    const p = products.find(prod => prod.id === id);
+    if(p) {
+        document.getElementById('editProdId').value = p.id;
+        document.getElementById('editProdName').value = p.name;
+        document.getElementById('editProdOldPrice').value = p.oldPrice;
+        document.getElementById('editProdNewPrice').value = p.newPrice || '';
+        document.getElementById('editProdStock').value = p.stock;
+        document.getElementById('editProdDesc').value = p.description;
+        document.getElementById('editProdImage').value = p.image;
+        editProductModal.classList.remove('hidden');
+    }
+};
+
+// Guardar edición
+document.getElementById('editProductForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.textContent = "Actualizando..."; btn.disabled = true;
+
+    try {
+        const id = document.getElementById('editProdId').value;
+        const productRef = doc(db, "plantas", id);
+        
+        await updateDoc(productRef, {
+            name: document.getElementById('editProdName').value,
+            description: document.getElementById('editProdDesc').value,
+            oldPrice: parseFloat(document.getElementById('editProdOldPrice').value),
+            newPrice: parseFloat(document.getElementById('editProdNewPrice').value) || null,
+            image: document.getElementById('editProdImage').value,
+            stock: parseInt(document.getElementById('editProdStock').value)
+        });
+
+        alert("Producto actualizado exitosamente.");
+        editProductModal.classList.add('hidden');
+    } catch (error) {
+        alert("Error al actualizar el producto.");
+    } finally {
+        btn.textContent = "Guardar Cambios"; btn.disabled = false;
+    }
+});
+
+document.getElementById('addProductForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.textContent = "Guardando..."; btn.disabled = true;
+
+    try {
+        await addDoc(collection(db, "plantas"), {
+            name: document.getElementById('prodName').value,
+            description: document.getElementById('prodDesc').value,
+            oldPrice: parseFloat(document.getElementById('prodOldPrice').value),
+            newPrice: parseFloat(document.getElementById('prodNewPrice').value) || null,
+            image: document.getElementById('prodImage').value,
+            stock: parseInt(document.getElementById('prodStock').value),
+            reviews: [],
+            createdAt: new Date()
+        });
+
+        alert('Producto agregado.');
+        e.target.reset();
+    } catch (error) {
+        alert('Error al guardar.');
+    } finally {
+        btn.textContent = "Agregar Producto"; btn.disabled = false;
     }
 });
 
@@ -267,7 +441,6 @@ window.openReviews = function(id) {
             `;
         });
     }
-
     reviewsModal.classList.remove('hidden');
 };
 
@@ -276,7 +449,6 @@ document.getElementById('submitReviewBtn').addEventListener('click', async () =>
     
     const text = document.getElementById('reviewTextInput').value;
     const rating = parseInt(document.getElementById('reviewStarSelect').value);
-    
     if(text.trim() === '') return alert("Por favor escribe un comentario.");
 
     const btn = document.getElementById('submitReviewBtn');
@@ -284,7 +456,6 @@ document.getElementById('submitReviewBtn').addEventListener('click', async () =>
 
     try {
         const productRef = doc(db, "plantas", currentReviewProductId);
-        // arrayUnion agrega la reseña al arreglo "reviews" en Firebase
         await updateDoc(productRef, {
             reviews: arrayUnion({
                 userId: auth.currentUser.uid,
@@ -300,63 +471,9 @@ document.getElementById('submitReviewBtn').addEventListener('click', async () =>
         reviewsModal.classList.add('hidden');
     } catch (error) {
         alert("Error al publicar la reseña.");
-        console.error(error);
     } finally {
         btn.textContent = "Publicar Reseña"; btn.disabled = false;
     }
-});
-
-// --- AGREGAR PRODUCTO (ADMIN) ---
-document.getElementById('addProductForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btn = e.target.querySelector('button[type="submit"]');
-    btn.textContent = "Guardando..."; btn.disabled = true;
-
-    try {
-        await addDoc(collection(db, "plantas"), {
-            name: document.getElementById('prodName').value,
-            description: document.getElementById('prodDesc').value,
-            oldPrice: parseFloat(document.getElementById('prodOldPrice').value),
-            newPrice: parseFloat(document.getElementById('prodNewPrice').value) || null,
-            image: document.getElementById('prodImage').value,
-            stock: parseInt(document.getElementById('prodStock').value),
-            reviews: [], // Inicializamos las reseñas vacías
-            createdAt: new Date()
-        });
-
-        alert('Producto agregado.');
-        e.target.reset();
-    } catch (error) {
-        alert('Error al guardar.');
-    } finally {
-        btn.textContent = "Agregar Producto"; btn.disabled = false;
-    }
-});
-
-// RESTO DE LÓGICA (Login y Perfil se mantienen igual)
-document.getElementById('logoutBtn').addEventListener('click', () => { signOut(auth); alert('Sesión cerrada'); });
-const tabLogin = document.getElementById('tabLogin'); const tabRegister = document.getElementById('tabRegister');
-const loginFormArea = document.getElementById('loginFormArea'); const registerFormArea = document.getElementById('registerFormArea');
-tabLogin.addEventListener('click', () => { tabLogin.classList.add('active'); tabRegister.classList.remove('active'); loginFormArea.classList.remove('hidden'); registerFormArea.classList.add('hidden'); });
-tabRegister.addEventListener('click', () => { tabRegister.classList.add('active'); tabLogin.classList.remove('active'); registerFormArea.classList.remove('hidden'); loginFormArea.classList.add('hidden'); });
-
-document.getElementById('submitLogin').addEventListener('click', async () => {
-    try { await signInWithEmailAndPassword(auth, document.getElementById('loginEmail').value, document.getElementById('loginPassword').value); authModal.classList.add('hidden'); } catch (error) { alert('Error al iniciar sesión.'); }
-});
-
-document.getElementById('submitRegister').addEventListener('click', async () => {
-    try {
-        const cred = await createUserWithEmailAndPassword(auth, document.getElementById('regEmail').value, document.getElementById('regPassword').value);
-        await updateProfile(cred.user, { displayName: document.getElementById('regNickname').value, photoURL: "https://u.cubeupload.com/LAUIS46/defaultimage.png" });
-        window.location.reload(); 
-    } catch (error) { alert('Error: ' + error.message); }
-});
-
-document.getElementById('saveProfileBtn').addEventListener('click', async () => {
-    try {
-        await updateProfile(auth.currentUser, { displayName: document.getElementById('editNickname').value || auth.currentUser.displayName, photoURL: document.getElementById('editAvatarUrl').value || auth.currentUser.photoURL });
-        window.location.reload();
-    } catch (error) { alert('Error al actualizar'); }
 });
 
 listenToProducts();
