@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 150" width="400" height="150">
+  <!-- Fondo y Marco -->
+  <rect x="5" y="5" width="390" height="140" rx="15" fill="none" stroke="#2e7d32" stroke-width="4"/>
+  <rect x="15" y="15" width="370" height="120" rx="10" fill="#f1f8e9" stroke="#66bb6a" stroke-width="2"/>
+  
+  <!-- Icono de Hoja -->
+  <path d="M60 75 C 60 40, 100 30, 120 75 C 100 120, 60 110, 60 75 Z" fill="#2e7d32"/>
+  <line x1="90" y1="50" x2="90" y2="100" stroke="#1b5e20" stroke-width="2"/>
+  
+  <!-- Texto -->
+  <text x="140" y="85" font-family="Arial, sans-serif" font-size="35" font-weight="bold" fill="#2e7d32">EcoMagia</text>
+  <text x="145" y="110" font-family="Arial, sans-serif" font-size="14" fill="#555">Vivero especializado</text>
+</svg>
+```
+
+### ¿Cómo integrarlo a tu página?
+
+1.  **Guarda el archivo:** Crea un archivo llamado `logo.svg` en la carpeta donde tienes tu `index.html`.
+2.  **Actualiza el HTML:** En tu archivo `index.html`, busca la sección del logo y cámbiala por la ruta de este nuevo archivo:
+
+```html
+<!-- Busca esta parte en tu index.html -->
+<div class="logo-container">
+    <img src="logo.svg" alt="Logo Vivero EcoMagia" id="main-logo">
+</div>
