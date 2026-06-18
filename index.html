@@ -48,6 +48,25 @@
             </section>
     </main>
 
+    <div id="editProductModal" class="modal hidden">
+        <div class="modal-content">
+            <h3>✏️ Editar Producto</h3>
+            <form id="editProductForm">
+                <input type="hidden" id="editProdId">
+                <div class="form-grid">
+                    <input type="text" id="editProdName" placeholder="Nombre" required>
+                    <input type="number" id="editProdOldPrice" placeholder="Precio Original" required>
+                    <input type="number" id="editProdNewPrice" placeholder="Precio Oferta">
+                    <input type="number" id="editProdStock" placeholder="Stock" required>
+                </div>
+                <textarea id="editProdDesc" placeholder="Descripción" required></textarea>
+                <input type="url" id="editProdImage" placeholder="URL Imagen" required>
+                <button type="submit" class="action-btn">Guardar Cambios</button>
+                <button type="button" class="close-modal btn-secondary" style="width: 100%;">Cancelar</button>
+            </form>
+        </div>
+    </div>
+
     <div id="authModal" class="modal hidden">
         <div class="modal-content auth-content">
             <div class="auth-tabs">
@@ -65,13 +84,13 @@
                 <input type="password" id="regPassword" placeholder="Contraseña (Mín. 6 caracteres)">
                 <button id="submitRegister" class="action-btn">Crear Cuenta</button>
             </div>
-            <button class="close-modal">Cerrar</button>
+            <button class="close-modal mt-2">Cerrar</button>
         </div>
     </div>
 
     <div id="settingsModal" class="modal hidden">
         <div class="modal-content">
-            <h3>⚙️ Ajustes del Sistema</h3>
+            <h3>⚙️ Ajustes</h3>
             <div class="setting-item">
                 <label for="darkModeToggle">Modo Oscuro</label>
                 <label class="switch">
@@ -83,7 +102,7 @@
             <div id="editProfileArea" class="hidden">
                 <h3>✏️ Editar Perfil</h3>
                 <input type="text" id="editNickname" placeholder="Nuevo Nickname">
-                <input type="url" id="editAvatarUrl" placeholder="URL de tu nueva foto de perfil">
+                <input type="url" id="editAvatarUrl" placeholder="URL de nueva foto">
                 <button id="saveProfileBtn" class="action-btn">Guardar Cambios</button>
             </div>
             <p id="settingsLoginPrompt" class="text-muted">Inicia sesión para editar tu perfil.</p>
@@ -92,7 +111,7 @@
     </div>
 
     <div id="cartModal" class="modal hidden">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 500px;">
             <h3>🛒 Tu Carrito</h3>
             <div id="cartItemsContainer" class="cart-items">
                 <p class="text-muted">Tu carrito está vacío.</p>
@@ -100,34 +119,55 @@
             <div class="cart-summary">
                 <strong>Total: $<span id="cartTotal">0.00</span></strong>
             </div>
-            <button id="checkoutBtn" class="action-btn" style="margin-top:1rem;">Proceder al Pago</button>
-            <button class="close-modal mt-2">Seguir Comprando</button>
+
+            <div class="payment-section mt-2">
+                <h4>Método de Pago</h4>
+                <div class="payment-options">
+                    <label>
+                        <input type="radio" name="payMethod" value="cash" checked>
+                        💵 Efectivo (En caja)
+                    </label>
+                    <label>
+                        <input type="radio" name="payMethod" value="card">
+                        💳 Tarjeta de Crédito/Débito
+                    </label>
+                </div>
+
+                <div id="cardDetails" class="hidden mt-2">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span id="cardTypeLabel" style="font-weight: bold; color: var(--primary);">💳 Tarjeta</span>
+                    </div>
+                    <input type="text" id="cardNumber" placeholder="Número de Tarjeta" maxlength="16" style="margin-top: 5px;">
+                    <div class="form-grid">
+                        <input type="text" id="cardExpiry" placeholder="MM/AA" maxlength="5">
+                        <input type="text" id="cardCVC" placeholder="CVC" maxlength="3">
+                    </div>
+                </div>
+            </div>
+
+            <button id="checkoutBtn" class="action-btn" style="margin-top:1rem;">Pagar Ahora</button>
+            <button class="close-modal btn-secondary" style="width: 100%;">Seguir Comprando</button>
         </div>
     </div>
 
     <div id="reviewsModal" class="modal hidden">
         <div class="modal-content">
             <h3 id="reviewProductName">Reseñas del Producto</h3>
-            
-            <div id="reviewsList" class="reviews-container">
-                </div>
-
+            <div id="reviewsList" class="reviews-container"></div>
             <hr>
-            
             <div id="addReviewArea">
                 <h4>Deja tu reseña</h4>
-                <select id="reviewStarSelect">
+                <select id="reviewStarSelect" style="width: 100%; padding: 8px; margin-bottom: 10px; background: var(--input-bg); color: var(--text-color); border: 1px solid var(--input-border); border-radius: 6px;">
                     <option value="5">⭐⭐⭐⭐⭐ Excelente</option>
                     <option value="4">⭐⭐⭐⭐ Muy Bueno</option>
                     <option value="3">⭐⭐⭐ Bueno</option>
                     <option value="2">⭐⭐ Regular</option>
                     <option value="1">⭐ Malo</option>
                 </select>
-                <textarea id="reviewTextInput" placeholder="Escribe tu opinión sobre la planta..."></textarea>
+                <textarea id="reviewTextInput" placeholder="Escribe tu opinión..."></textarea>
                 <button id="submitReviewBtn" class="action-btn">Publicar Reseña</button>
             </div>
             <p id="reviewLoginPrompt" class="text-muted hidden">Inicia sesión para dejar una reseña.</p>
-            
             <button class="close-modal mt-2">Cerrar</button>
         </div>
     </div>
