@@ -29,6 +29,7 @@
     </header>
 
     <main>
+        <!-- Panel para Agregar Producto -->
         <section id="adminPanel" class="hidden">
             <h2>Panel de Administrador 👑</h2>
             <form id="addProductForm">
@@ -44,10 +45,13 @@
             </form>
         </section>
 
+        <!-- Catálogo de Productos -->
         <section class="catalog" id="catalog">
-            </section>
+            <!-- Renderizado por JS -->
+        </section>
     </main>
 
+    <!-- Modal Editar Producto (Admin) -->
     <div id="editProductModal" class="modal hidden">
         <div class="modal-content">
             <h3>✏️ Editar Producto</h3>
@@ -67,6 +71,7 @@
         </div>
     </div>
 
+    <!-- Modales de Autenticación -->
     <div id="authModal" class="modal hidden">
         <div class="modal-content auth-content">
             <div class="auth-tabs">
@@ -88,6 +93,7 @@
         </div>
     </div>
 
+    <!-- Modal de Ajustes -->
     <div id="settingsModal" class="modal hidden">
         <div class="modal-content">
             <h3>⚙️ Ajustes</h3>
@@ -103,6 +109,8 @@
                 <h3>✏️ Editar Perfil</h3>
                 <input type="text" id="editNickname" placeholder="Nuevo Nickname">
                 <input type="url" id="editAvatarUrl" placeholder="URL de nueva foto">
+                <!-- NUEVO CAMPO DE DIRECCIÓN -->
+                <input type="text" id="editAddress" placeholder="Dirección de envío (Ej. Calle 123, Ciudad)">
                 <button id="saveProfileBtn" class="action-btn">Guardar Cambios</button>
             </div>
             <p id="settingsLoginPrompt" class="text-muted">Inicia sesión para editar tu perfil.</p>
@@ -110,6 +118,7 @@
         </div>
     </div>
 
+    <!-- Modal del Carrito con Pasarela de Pago -->
     <div id="cartModal" class="modal hidden">
         <div class="modal-content" style="max-width: 500px;">
             <h3>🛒 Tu Carrito</h3>
@@ -120,6 +129,7 @@
                 <strong>Total: $<span id="cartTotal">0.00</span></strong>
             </div>
 
+            <!-- Sección de Pago -->
             <div class="payment-section mt-2">
                 <h4>Método de Pago</h4>
                 <div class="payment-options">
@@ -133,6 +143,7 @@
                     </label>
                 </div>
 
+                <!-- Campos de Tarjeta Simulados -->
                 <div id="cardDetails" class="hidden mt-2">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <span id="cardTypeLabel" style="font-weight: bold; color: var(--primary);">💳 Tarjeta</span>
@@ -150,6 +161,7 @@
         </div>
     </div>
 
+    <!-- Modal de Reseñas -->
     <div id="reviewsModal" class="modal hidden">
         <div class="modal-content">
             <h3 id="reviewProductName">Reseñas del Producto</h3>
@@ -169,6 +181,38 @@
             </div>
             <p id="reviewLoginPrompt" class="text-muted hidden">Inicia sesión para dejar una reseña.</p>
             <button class="close-modal mt-2">Cerrar</button>
+        </div>
+    </div>
+
+    <!-- Modal de Recibo / PDF -->
+    <div id="receiptModal" class="modal hidden">
+        <div class="modal-content" style="max-width: 400px; background: white; color: black;" id="printableReceipt">
+            <div class="receipt-header" style="text-align: center; border-bottom: 2px solid #2e7d32; padding-bottom: 10px; margin-bottom: 10px;">
+                <h2 style="color: #2e7d32; margin: 0;">🌿 EcoMagia</h2>
+                <p style="margin: 5px 0; font-weight: bold;">¡Gracias por tu compra!</p>
+                <p style="margin: 0; font-size: 0.9rem; color: #555;" id="receiptDate"></p>
+            </div>
+            
+            <div class="receipt-body" style="font-size: 0.95rem;">
+                <p><strong>Cliente:</strong> <span id="receiptName"></span></p>
+                <p><strong>Ubicación:</strong> <span id="receiptAddress"></span></p>
+                
+                <div style="background-color: #e8f5e9; color: #2e7d32; padding: 10px; border-radius: 6px; text-align: center; font-weight: bold; margin: 15px 0;">
+                    🚚 Llega mañana a su ubicación.
+                </div>
+                
+                <h4 style="margin-bottom: 5px; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Detalles de la compra:</h4>
+                <div id="receiptItems" style="margin-bottom: 15px;">
+                    <!-- Items inyectados por JS -->
+                </div>
+                
+                <h3 style="text-align: right; margin-top: 10px; color: #d32f2f;">Total: $<span id="receiptTotal"></span></h3>
+            </div>
+
+            <div class="no-print" style="margin-top: 20px;">
+                <button class="action-btn" onclick="window.print()">🖨️ Imprimir / Guardar como PDF</button>
+                <button class="close-modal btn-secondary mt-2" style="width: 100%;">Cerrar</button>
+            </div>
         </div>
     </div>
 
