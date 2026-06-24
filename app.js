@@ -1,6 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-// Se agregó deleteDoc a las importaciones
 import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc, updateDoc, arrayUnion, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
@@ -28,6 +27,7 @@ const settingsModal = document.getElementById('settingsModal');
 const cartModal = document.getElementById('cartModal');
 const editProductModal = document.getElementById('editProductModal');
 const reviewsModal = document.getElementById('reviewsModal');
+const receiptModal = document.getElementById('receiptModal');
 
 // --- MODO OSCURO ---
 const darkModeToggle = document.getElementById('darkModeToggle');
@@ -69,7 +69,6 @@ function renderProducts() {
             ? `<button class="action-btn" onclick="addToCart('${p.id}')">Añadir al carrito</button>` 
             : `<button class="action-btn" disabled style="background:gray;">Agotado</button>`;
 
-        // Botones exclusivos de administrador
         const adminButtons = isAdmin ? `
             <div class="admin-controls">
                 <button class="btn-edit" onclick="openEditModal('${p.id}')">✏️ Editar</button>
@@ -117,6 +116,11 @@ onAuthStateChanged(auth, (user) => {
         document.getElementById('userProfileBadge').classList.remove('hidden');
         document.getElementById('userNameDisplay').textContent = user.displayName || "Sin Nombre";
         document.getElementById('userAvatarBtn').src = user.photoURL || "https://u.cubeupload.com/LAUIS46/defaultimage.png";
+        
+        // Cargar Dirección Guardada
+        const savedAddress = localStorage.getItem('address_' + user.uid) || "";
+        document.getElementById('editAddress').value = savedAddress;
+
         document.getElementById('editProfileArea').classList.remove('hidden');
         document.getElementById('settingsLoginPrompt').classList.add('hidden');
         document.getElementById('addReviewArea').classList.remove('hidden');
@@ -131,7 +135,7 @@ onAuthStateChanged(auth, (user) => {
         document.getElementById('addReviewArea').classList.add('hidden');
         document.getElementById('reviewLoginPrompt').classList.remove('hidden');
     }
-    renderProducts(); // Re-renderizar para mostrar/ocultar botones de admin
+    renderProducts(); 
 });
 
 document.getElementById('loginBtn').addEventListener('click', () => authModal.classList.remove('hidden'));
@@ -159,7 +163,14 @@ document.getElementById('submitRegister').addEventListener('click', async () => 
 
 document.getElementById('saveProfileBtn').addEventListener('click', async () => {
     try {
-        await updateProfile(auth.currentUser, { displayName: document.getElementById('editNickname').value || auth.currentUser.displayName, photoURL: document.getElementById('editAvatarUrl').value || auth.currentUser.photoURL });
+        await updateProfile(auth.currentUser, { 
+            displayName: document.getElementById('editNickname').value || auth.currentUser.displayName, 
+            photoURL: document.getElementById('editAvatarUrl').value || auth.currentUser.photoURL 
+        });
+        
+        // Guardar Dirección
+        localStorage.setItem('address_' + auth.currentUser.uid, document.getElementById('editAddress').value);
+        
         window.location.reload();
     } catch (error) { alert('Error al actualizar'); }
 });
@@ -181,7 +192,6 @@ window.addToCart = function(id) {
                 alert(`Stock máximo alcanzado (${product.stock}).`);
             }
         } else {
-            // Añadimos el producto con una propiedad de cantidad (qty)
             cart.push({ ...product, qty: 1 });
             alert(`${product.name} añadido a tu carrito 🌿`);
         }
@@ -213,7 +223,9 @@ window.changeCartQty = function(id, newQty) {
 }
 
 function updateCartUI() {
-    // Calcular conteo total de items (sumando cantidades)
+    // Corregir items antiguos del carrito (por si no tenían 'qty')
+    cart.forEach(item => { if (!item.qty) item.qty = 1; });
+
     const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
     document.getElementById('cartCount').textContent = totalItems;
     
@@ -225,7 +237,6 @@ function updateCartUI() {
     } else {
         container.innerHTML = '';
         cart.forEach((item) => {
-            // Refrescar stock visual en caso de cambios en la base de datos
             const realProduct = products.find(p => p.id === item.id);
             const stockLimit = realProduct ? realProduct.stock : item.stock;
             
@@ -251,13 +262,12 @@ function updateCartUI() {
     document.getElementById('cartTotal').textContent = total.toFixed(2);
 }
 
-// --- PASARELA DE PAGO ---
+// --- PASARELA DE PAGO Y TICKET ---
 const radioMethods = document.querySelectorAll('input[name="payMethod"]');
 const cardDetails = document.getElementById('cardDetails');
 const cardNumberInput = document.getElementById('cardNumber');
 const cardTypeLabel = document.getElementById('cardTypeLabel');
 
-// Mostrar/Ocultar detalles de tarjeta
 radioMethods.forEach(radio => {
     radio.addEventListener('change', (e) => {
         if(e.target.value === 'card') {
@@ -268,7 +278,6 @@ radioMethods.forEach(radio => {
     });
 });
 
-// Detectar Visa o Mastercard
 cardNumberInput.addEventListener('input', (e) => {
     const val = e.target.value;
     if (val.startsWith('4')) {
@@ -286,7 +295,16 @@ cardNumberInput.addEventListener('input', (e) => {
 document.getElementById('checkoutBtn').addEventListener('click', async () => {
     if(cart.length === 0) return alert("Tu carrito está vacío.");
     
-    // Validación sencilla si elige tarjeta
+    // Validar Dirección
+    const userAddress = localStorage.getItem('address_' + auth.currentUser.uid);
+    if(!userAddress || userAddress.trim() === '') {
+        alert("Por favor, configura tu dirección de envío en los ⚙️ Ajustes antes de realizar la compra.");
+        cartModal.classList.add('hidden');
+        settingsModal.classList.remove('hidden');
+        return;
+    }
+
+    // Validar Tarjeta
     const isCard = document.querySelector('input[name="payMethod"]:checked').value === 'card';
     if(isCard) {
         if(cardNumberInput.value.length < 13 || !document.getElementById('cardExpiry').value || !document.getElementById('cardCVC').value) {
@@ -298,25 +316,50 @@ document.getElementById('checkoutBtn').addEventListener('click', async () => {
     btn.textContent = "Procesando..."; btn.disabled = true;
 
     try {
+        // Restar Stock
         for (let item of cart) {
             const productRef = doc(db, "plantas", item.id);
             const pDoc = await getDoc(productRef);
             
             if(pDoc.exists()) {
                 let currentStock = pDoc.data().stock;
-                let newStock = currentStock - item.qty; // Restamos la cantidad específica
+                let newStock = currentStock - item.qty;
                 if(newStock < 0) newStock = 0;
-                
                 await updateDoc(productRef, { stock: newStock });
             }
         }
 
-        alert("¡Pago con éxito! 🌿 Gracias por tu compra.");
+        // Generar Datos del Ticket
+        document.getElementById('receiptDate').textContent = new Date().toLocaleString('es-MX');
+        document.getElementById('receiptName').textContent = auth.currentUser.displayName || "Cliente";
+        document.getElementById('receiptAddress').textContent = userAddress;
+
+        const receiptItemsContainer = document.getElementById('receiptItems');
+        receiptItemsContainer.innerHTML = '';
+        let rTotal = 0;
+
+        cart.forEach(item => {
+            const price = item.newPrice || item.oldPrice;
+            const subtotal = price * item.qty;
+            rTotal += subtotal;
+            
+            receiptItemsContainer.innerHTML += `
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding: 6px 0;">
+                    <span>${item.qty}x ${item.name}</span>
+                    <strong>$${subtotal.toFixed(2)}</strong>
+                </div>
+            `;
+        });
+        document.getElementById('receiptTotal').textContent = rTotal.toFixed(2);
+
+        // Limpiar Carrito y Mostrar Ticket
         cart = []; 
         localStorage.removeItem('vivero_cart'); 
         updateCartUI();
+        
         cartModal.classList.add('hidden');
-        // Limpiar formulario tarjeta
+        receiptModal.classList.remove('hidden');
+
         cardNumberInput.value = '';
         document.getElementById('cardExpiry').value = '';
         document.getElementById('cardCVC').value = '';
@@ -324,14 +367,13 @@ document.getElementById('checkoutBtn').addEventListener('click', async () => {
 
     } catch (error) {
         alert("Ocurrió un error al procesar el pago.");
+        console.error(error);
     } finally {
         btn.textContent = "Pagar Ahora"; btn.disabled = false;
     }
 });
 
 // --- FUNCIONES DE ADMINISTRADOR (CRUD) ---
-
-// Borrar
 window.deleteProduct = async function(id) {
     if(confirm("¿Estás seguro de que deseas borrar este producto permanentemente?")) {
         try {
@@ -343,7 +385,6 @@ window.deleteProduct = async function(id) {
     }
 };
 
-// Abrir modal de edición
 window.openEditModal = function(id) {
     const p = products.find(prod => prod.id === id);
     if(p) {
@@ -358,7 +399,6 @@ window.openEditModal = function(id) {
     }
 };
 
-// Guardar edición
 document.getElementById('editProductForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = e.target.querySelector('button[type="submit"]');
