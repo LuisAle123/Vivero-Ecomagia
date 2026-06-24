@@ -55,14 +55,9 @@ header {
 }
 
 .logo-container img {
-    height: 65px;       /* Altura fija para que encaje en el header */
-    width: auto;        /* Mantiene la proporción 1862:681 automáticamente */
+    height: 65px;       
+    width: auto;        
     display: block;
-}
-
-#main-logo {
-    max-height: 50px;
-    object-fit: contain;
 }
 
 /* --- BOTONES DE NAVEGACIÓN --- */
@@ -413,4 +408,32 @@ input:checked + .slider:before { transform: translateX(26px); }
 .payment-options label {
     cursor: pointer;
     font-size: 0.95rem;
+}
+
+/* --- ESTILOS PARA GENERAR EL PDF (IMPRESIÓN) --- */
+@media print {
+    /* Ocultar todo el sitio web por defecto */
+    body * {
+        visibility: hidden;
+    }
+    
+    /* Hacer visible solo el contenedor del recibo */
+    #printableReceipt, #printableReceipt * {
+        visibility: visible;
+    }
+    
+    /* Posicionar el recibo en la esquina superior izquierda de la hoja PDF */
+    #printableReceipt {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        box-shadow: none;
+        border: none;
+    }
+    
+    /* Ocultar los botones dentro del recibo al crear el PDF */
+    .no-print {
+        display: none !important;
+    }
 }
